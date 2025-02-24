@@ -62,7 +62,7 @@ The **Ramadan Quiz Automation** project is designed to streamline the process of
 ### **4. Quiz_Results**
 | Date | Name | Email | Selected Answers | Correct Answers | Correct Count | Wrong Count | Score | Status |
 |------|------|-------|----------------|----------------|--------------|------------|------|--------|
-| 2025-03-10 | John Doe | member@sio-kurla.com | A, C, B... | Correct Answer, ... | 8 | 2 | 80% | Passed |
+| 2025-03-10 | Mohammad | member@sio-kurla.com | A, C, B... | Correct Answer, ... | 8 | 2 | 80% | Passed |
 
 ## How to Run the Script
 ### **1. Set Up Google Apps Script**
