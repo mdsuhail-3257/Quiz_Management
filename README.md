@@ -99,4 +99,12 @@ This project is open-source and available for collaboration under the MIT Licens
 
 ---
 **For Issues & Debugging:** Submit issues in the GitHub repository to collaborate with other developers.
+## 🚨 Known Issues & Bugs
+
+We are actively working on resolving the following issues:
+- ✅ **Quiz results not updating automatically**
+- ❌ **Emails not sent for absent participants**
+- 🛠️ **Need better error handling in App Script**
+
+If you have a fix, feel free to contribute! Check our [Issues](https://github.com/mdsuhail-3257/Quiz_Management/issues).
 
