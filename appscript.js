@@ -1,224 +1,248 @@
-// Quiz_Management App Script
+// ✅ Constants (Replace with actual IDs)
+const SHEET_ID = "Google_Sheet_ID";  
+const FORM_ID = "Google_Form_ID";  
+const REGISTRATION_SHEET = "Quiz_Registration";  
+const QUIZZES_SHEET = "Daily_Quizzes"; //Update this sheet with new questions daily 
+const RESPONSE_SHEET = "Quiz_Response"; //Append responses from Google Form here  
+const HISTORY_SHEET = "Quiz_History";  //Store daily quizzes here
+const RESULT_SHEET = "Quiz_Result"; //
+
+//Columns to add in Google Sheets
+// Quiz_Registration: Name, Email,Status
+// Daily_Quizzes: Question,Options A,Options B,Options C,Options D, Answer
+// Quiz_Response: Date, Email, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10, Score, Status
+// Quiz_History: Date, Q1, Answer1, Q2, Answer2, Q3, Answer3, Q4, Answer4, Q5, Answer5, Q6, Answer6, Q7, Answer7, Q8, Answer8, Q9, Answer9, Q10, Answer10
+// Quiz_Result: Date, Email, Name, Score, Status
+
+// ✅ Main Function  //****create separate script for this *****/
 function runDailyQuizAutomation() {
-    Logger.log("Starting daily quiz automation...");
-  
-    //updateDailyQuiz(); // Step 1: Update Quiz and Send Link
-    Utilities.sleep(2000); // Short delay for stability
-  
-    recordQuizResults(); // Step 2: Record Results
-    Utilities.sleep(2000);
-  
-    sendDailyResults(); // Step 3: Send Scores
-    Utilities.sleep(2000);
-  
-    markAbsentParticipants(); // Step 4: Notify Absentees
-  
-    Logger.log("Daily quiz automation completed.");
-  }
-  
-  function updateDailyQuiz() {
+    updateQuizForm();       // Step 1: Update Form with New Questions
+    sendQuizToUsers();      // Step 2: Send Quiz Link to Registered Users
+    moveFormResponses();    // Step 3: Sync Responses to Quiz_Response Tab
+    storeQuizHistory();     // Step 4: Store the Quiz and Answers in Quiz_History
+    processQuizResults();   // Step 5: Process Results and Email Users and Notify Non-Attempting Users
+}
+// ****** Set All Triggers ******
+function setAllTriggers() {
+    ScriptApp.newTrigger("updateQuizForm").timeBased().atHour(4).everyDays(1).create();
+    ScriptApp.newTrigger("sendQuizToUsers").timeBased().atHour(5).everyDays(1).create();
+    ScriptApp.newTrigger("moveFormResponses").timeBased().everyMinutes(5).create();
+    ScriptApp.newTrigger("storeQuizHistory").timeBased().atHour(23).everyDays(1).create();
+    ScriptApp.newTrigger("processQuizResults").timeBased().atHour(23).everyDays(1).create();
+    ScriptApp.newTrigger("notifyUsers").timeBased().atHour(23).everyDays(1).create();
+    
+    Logger.log("✅ All triggers set successfully.");
+}
+// ***** For testing *****
+// function testprocessQuizResults() {
+//   processQuizResults();
+// }
+
+// ✅ Step 1: Update Google Form with New Questions
+function updateQuizForm() {
     try {
-      var ss = SpreadsheetApp.getActiveSpreadsheet();
-      var quizSheet = ss.getSheetByName("Daily_Quizzes");
-      var historySheet = ss.getSheetByName("Quiz_History");
-      var regSheet = ss.getSheetByName("Quiz_Registrations");
-      var form = FormApp.openById("1drI5NTZmzT7JkSS7E3ZuS54QQu2b-URm_AjQJOQf80c"); 
-  
-      if (!quizSheet || !historySheet || !regSheet || !form) {
-        Logger.log("Error: One or more sheets/forms are missing.");
-        return;
-      }
-  
-      var data = quizSheet.getDataRange().getValues();
-      if (data.length < 2) return;
-  
-      var today = new Date().toISOString().split("T")[0];
-      var historyRow = [today];
-  
-      for (var i = 1; i <= 10; i++) {
-        var questionRow = data[i];
-        if (questionRow.length < 6) continue;
-  
-        historyRow.push(questionRow[0]);  // Question
-        historyRow.push(questionRow[5]);  // Correct Answer
-      }
-      historySheet.appendRow(historyRow);
-  
-      form.getItems().forEach(item => form.deleteItem(item));
-  
-      for (var i = 1; i <= 10; i++) {
-        var questionRow = data[i];  
-        if (questionRow.length < 6) continue;
-  
-        var item = form.addMultipleChoiceItem();
-        var choices = [
-          item.createChoice(questionRow[1]),
-          item.createChoice(questionRow[2]),
-          item.createChoice(questionRow[3]),
-          item.createChoice(questionRow[4])
-        ];
-  
-        item.setTitle(questionRow[0]).setChoices(choices);
-      }
-  
-      sendQuizNotification(regSheet, form.getPublishedUrl());
-  
-    } catch (e) {
-      Logger.log("Error in updateDailyQuiz: " + e.toString());
+        const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(QUIZZES_SHEET);
+        const form = FormApp.openById(FORM_ID);
+
+        // Delete all existing questions in the form
+        form.getItems().forEach(item => form.deleteItem(item));
+
+        const questions = sheet.getRange(2, 1, 10, 6).getValues(); // Fetch 10 questions
+
+        questions.forEach((row, index) => {
+            let question = row[0]; // Question Text
+            let options = row.slice(1, 5); // Options (A, B, C, D)
+
+            let mcqItem = form.addMultipleChoiceItem();
+            let choices = options.map(option => mcqItem.createChoice(option)); // ✅ Correct way to create choices
+
+            mcqItem.setTitle(`Q${index + 1}: ${question}`)
+                .setChoices(choices)
+                .showOtherOption(false);
+        });
+
+        Logger.log("✅ Quiz Form Updated Successfully.");
+    } catch (error) {
+        handleError(error, "updateQuizForm");
     }
-  }
-  
-  function recordQuizResults() {
+}
+
+
+
+
+// ✅ Step 2: Send Quiz Form Link to Registered Users
+function sendQuizToUsers() {
     try {
-      var ss = SpreadsheetApp.getActiveSpreadsheet();
-      var form = FormApp.openById("1drI5NTZmzT7JkSS7E3ZuS54QQu2b-URm_AjQJOQf80c");
-      var responseSheet = ss.getSheetByName("Quiz_Results");
-      var historySheet = ss.getSheetByName("Quiz_History");
-  
-      if (!responseSheet || !historySheet) {
-        Logger.log("Error: Sheets not found.");
-        return;
-      }
-  
-      var responses = form.getResponses();
-      if (responses.length === 0) return;
-  
-      var historyData = historySheet.getDataRange().getValues();
-      var today = new Date().toISOString().split("T")[0];
-      var historyRow = historyData.find(row => row[0] === today);
-      
-      if (!historyRow) {
-        Logger.log("No quiz history for today.");
-        return;
-      }
-  
-      var lastRow = responseSheet.getLastRow();
-      var existingEmails = responseSheet.getRange(2, 3, lastRow, 1).getValues().flat();
-  
-      responses.forEach(response => {
-        var email = response.getRespondentEmail();
-        if (existingEmails.includes(email)) return;
-  
-        var itemResponses = response.getItemResponses();
-        var selectedAnswers = [];
-        var correctAnswers = [];
-        var correctCount = 0;
-  
-        for (var i = 0; i < 10; i++) {
-          var selectedAnswer = itemResponses[i] ? itemResponses[i].getResponse() : "N/A";
-          var correctAnswer = historyRow[i * 2 + 2] || "N/A";
-  
-          selectedAnswers.push(selectedAnswer);
-          correctAnswers.push(correctAnswer);
-  
-          if (selectedAnswer === correctAnswer) correctCount++;
+        const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(REGISTRATION_SHEET);
+        const emails = sheet.getRange(2, 2, sheet.getLastRow() - 1).getValues().flat();
+        const formUrl = FormApp.openById(FORM_ID).getPublishedUrl();
+
+        emails.forEach(email => {
+            MailApp.sendEmail(email, "📢 Today's Quiz is Live!", `Attempt the quiz here: ${formUrl}\nDeadline: 11:30 PM`);
+        });
+
+        Logger.log("✅ Quiz link sent to all registered users.");
+    } catch (error) {
+        handleError(error, "sendQuizToUsers");
+    }
+}
+
+// ✅ Step 3: Move Responses from Google Form to Quiz_Response Tab
+function moveFormResponses() {
+    try {
+        const ss = SpreadsheetApp.openById(SHEET_ID);
+        const formSheet = ss.getSheetByName("Form Responses 1");
+        const regSheet = ss.getSheetByName("Quiz_Registration");
+        const quizSheet = ss.getSheetByName("Daily_Quizzes");
+        const responseSheet = ss.getSheetByName("Quiz_Response");
+
+        const today = new Date().toISOString().split('T')[0];
+
+        // ✅ Fetch registered emails from Quiz_Registration (Column B)
+        const regEmails = regSheet.getRange(2, 2, regSheet.getLastRow() - 1, 1).getValues().flat();
+
+        // ✅ Fetch responses from "Form Responses 1"
+        const responses = formSheet.getRange(2, 1, formSheet.getLastRow() - 1, formSheet.getLastColumn()).getValues();
+
+        // ✅ Fetch correct answers from "Daily_Quizzes" (Column F)
+        const correctAnswers = quizSheet.getRange(2, 6, 10, 1).getValues().flat().map(ans => ans.toString().trim()); 
+
+        let newResponses = [];
+        let respondedEmails = new Set();
+
+        responses.forEach(row => {
+            let email = row[1].trim(); // Email in Column B of Form Responses 1
+            if (!regEmails.includes(email)) {
+                Logger.log(`❌ Invalid Response - Email not registered: ${email}`);
+                return;
+            }
+            respondedEmails.add(email);
+
+            // ✅ Extract user answers from columns **D to M** (10 Questions)
+            let userAnswers = row.slice(3, 13).map(ans => ans.toString().trim()); 
+
+            // ✅ Calculate Score (compare user answers with correct answers)
+            let score = userAnswers.reduce((total, ans, i) => total + (ans === correctAnswers[i] ? 1 : 0), 0);
+
+            newResponses.push([today, email, ...userAnswers, score, "Present"]);
+        });
+
+        // ✅ Mark Absent Users (Users in `Quiz_Registration` who didn't submit responses)
+        regEmails.forEach(email => {
+            if (!respondedEmails.has(email)) {
+                newResponses.push([today, email, "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", 0, "Absent"]);
+            }
+        });
+
+        // ✅ Append Data to Quiz_Response
+        if (newResponses.length > 0) {
+            responseSheet.getRange(responseSheet.getLastRow() + 1, 1, newResponses.length, newResponses[0].length).setValues(newResponses);
+            Logger.log("✅ Responses moved, scores calculated, and absentees marked.");
+        } else {
+            Logger.log("⚠️ No valid responses found.");
         }
-  
-        var score = (correctCount / 10) * 100;
-        var status = score >= 50 ? "Passed" : "Failed";
-  
-        responseSheet.appendRow([today, "", email, selectedAnswers.join(", "), correctAnswers.join(", "), correctCount, 10 - correctCount, score, status]);
-      });
-  
-    } catch (e) {
-      Logger.log("Error in recordQuizResults: " + e.toString());
+    } catch (error) {
+        Logger.log(`❌ Error in moveFormResponses: ${error.message}`);
     }
-  }
-  
-  function sendDailyResults() {
+}
+
+
+
+
+
+
+
+
+
+// ✅ Step 4: Store Daily Quiz in Quiz_History
+function storeQuizHistory() {
     try {
-      var ss = SpreadsheetApp.getActiveSpreadsheet();
-      var resultsSheet = ss.getSheetByName("Quiz_Results");
-  
-      if (!resultsSheet) {
-        Logger.log("Error: Results sheet missing.");
-        return;
-      }
-  
-      var lastRow = resultsSheet.getLastRow();
-      if (lastRow < 2) return;
-  
-      var data = resultsSheet.getRange(2, 1, lastRow - 1, 9).getValues();
-      
-      data.forEach(row => {
-        var email = row[2];
-        var score = row[7];
-        var status = row[8];
-  
-        var subject = "Your Daily Quiz Results";
-        var message = `Hello,\n\nYour quiz results:\nScore: ${score}%\nStatus: ${status}\n\nThanks for participating!`;
-  
-        try {
-          MailApp.sendEmail(email, subject, message);
-          Logger.log("Email sent to: " + email);
-        } catch (err) {
-          Logger.log("Error sending email to " + email + ": " + err.toString());
-        }
-      });
-  
-    } catch (e) {
-      Logger.log("Error in sendDailyResults: " + e.toString());
+        const sheet = SpreadsheetApp.openById(SHEET_ID);
+        const quizSheet = sheet.getSheetByName(QUIZZES_SHEET);
+        const historySheet = sheet.getSheetByName(HISTORY_SHEET);
+
+        const data = quizSheet.getRange(2, 1, 10, 6).getValues();
+        const date = new Date();
+        const formattedDate = Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM-dd");
+
+        const historyRow = [formattedDate];
+        data.forEach(row => historyRow.push(row[0], row[5])); // Store Question + Answer Only
+
+        historySheet.appendRow(historyRow);
+        Logger.log("✅ Quiz history updated.");
+    } catch (error) {
+        handleError(error, "storeQuizHistory");
     }
-  }
-  
-  function markAbsentParticipants() {
+}
+
+// ✅ Step 5: Process Quiz Results
+function processQuizResults() {
     try {
-      var ss = SpreadsheetApp.getActiveSpreadsheet();
-      var regSheet = ss.getSheetByName("Quiz_Registrations");
-      var resultsSheet = ss.getSheetByName("Quiz_Results");
-  
-      if (!regSheet || !resultsSheet) {
-        Logger.log("Error: Sheets missing.");
-        return;
-      }
-  
-      var today = new Date().toISOString().split("T")[0];
-      var submittedEmails = resultsSheet.getRange(2, 3, resultsSheet.getLastRow(), 1).getValues().flat();
-      var regData = regSheet.getDataRange().getValues();
-      
-      regData.shift();
-  
-      regData.forEach(row => {
-        var name = row[0];
-        var email = row[1];
-  
-        if (email && !submittedEmails.includes(email)) {
-          try {
-            MailApp.sendEmail(email, "Missed Quiz Notification", `Hello ${name},\n\nYou did not submit today's quiz. Please participate in future quizzes.\n\nBest Regards!`);
-            Logger.log("Absent email sent to: " + email);
-          } catch (err) {
-            Logger.log("Error sending absent email: " + err.toString());
-          }
+        const sheet = SpreadsheetApp.openById(SHEET_ID);
+        const responseSheet = sheet.getSheetByName("Quiz_Response");
+        const resultSheet = sheet.getSheetByName("Quiz_Result");
+        const regSheet = sheet.getSheetByName("Quiz_Registration");
+
+        const today = new Date().toISOString().split('T')[0];
+
+        // ✅ Fetch registered users (Name, Email)
+        const registeredUsers = regSheet.getRange(2, 1, regSheet.getLastRow() - 1, 2).getValues();
+        const regEmails = registeredUsers.map(row => row[1].trim()); 
+
+        // ✅ Fetch existing responses
+        const responses = responseSheet.getDataRange().getValues();
+        if (responses.length <= 1) return; // No responses
+
+        let processedEmails = new Set();
+        let results = [];
+
+        responses.forEach((row, index) => {
+            if (index === 0) return; // Skip header row
+            
+            let email = row[1].trim(); // Column B: Email
+            let score = row[12]; // Column M: Score
+            let status = row[13]; // Column N: Present/Absent
+
+            let name = registeredUsers.find(user => user[1].trim() === email)?.[0] || "Unknown";
+
+            // ✅ Append row to Quiz_Result
+            results.push([today, email, name, score, status]);
+            processedEmails.add(email);
+
+            // ✅ Send score email to attempted students
+            if (status === "Present") {
+                MailApp.sendEmail({
+                    to: email,
+                    subject: "Your Quiz Score - " + today,
+                    body: `Hello ${name},\n\nYour quiz score for today (${today}) is: ${score}/10.\n\nKeep practicing!\n\nBest regards,\nQuiz Team`
+                });
+            }
+        });
+
+        // ✅ Append results to "Quiz_Result"
+        if (results.length > 0) {
+            resultSheet.getRange(resultSheet.getLastRow() + 1, 1, results.length, results[0].length).setValues(results);
+            Logger.log("✅ Quiz results updated in Quiz_Result.");
         }
-      });
-  
-    } catch (e) {
-      Logger.log("Error in markAbsentParticipants: " + e.toString());
+
+        // ✅ Identify and alert absent students
+        regEmails.forEach((email, i) => {
+            if (!processedEmails.has(email)) {
+                let name = registeredUsers[i][0]; // Get Name
+                resultSheet.appendRow([today, email, name, 0, "Absent"]);
+
+                // ✅ Send absent alert email
+                MailApp.sendEmail({
+                    to: email,
+                    subject: "Quiz Alert - You Missed Today's Quiz!",
+                    body: `Hello ${name},\n\nWe noticed you didn't attempt today's quiz (${today}). Please make sure to participate in the next quiz.\n\nBest regards,\nQuiz Team`
+                });
+
+                Logger.log(`⚠️ Absent alert sent to: ${email}`);
+            }
+        });
+
+    } catch (error) {
+        Logger.log(`❌ Error in processQuizResults: ${error.message}`);
     }
-  }
-  
-  function sendQuizNotification(regSheet, quizLink) {
-    try {
-      var data = regSheet.getDataRange().getValues();
-      if (data.length < 2) return; // No registrations
-  
-      for (var i = 1; i < data.length; i++) {
-        var name = data[i][0]; // Assuming Name is in Column A
-        var email = data[i][1]; // Assuming Email is in Column B
-  
-        if (email) {
-          var subject = "Today's Quiz is Ready!";
-          var message = `Hello ${name},\n\nYour daily quiz is now available! Click the link below to participate:\n\n${quizLink}\n\nPlease complete it before the deadline.\n\nBest of luck!`;
-  
-          try {
-            MailApp.sendEmail(email, subject, message);
-            Logger.log(`Quiz link sent to: ${email}`);
-          } catch (err) {
-            Logger.log(`Error sending quiz link to ${email}: ${err.toString()}`);
-          }
-        }
-      }
-    } catch (e) {
-      Logger.log("Error in sendQuizNotification: " + e.toString());
-    }
-  }
+}
