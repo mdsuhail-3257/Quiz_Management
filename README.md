@@ -1,110 +1,170 @@
-# Quiz_Management
-Use it for conducting quiz on large Audience
-
-
-# Ramadan Quiz Automation
+# Standard Operating Procedure (SOP) for Daily Quiz Automation
 
 ## Overview
-The **Ramadan Quiz Automation** project is designed to streamline the process of conducting a daily quiz throughout the month of Ramadan. The goal is to help participants, including students, housewives, and working professionals, build a stronger relationship with Allah and the Holy Quran by automating quiz distribution, response collection, result generation, and participant tracking.
 
-## Features
-- **Automated Quiz Distribution**: Sends quiz form links to registered participants daily.
-- **Response Collection & Evaluation**: Retrieves and evaluates quiz responses.
-- **Result Generation & Email Notification**: Calculates scores and emails results to participants.
-- **Absentee Tracking**: Marks participants as absent if they fail to submit responses and notifies them.
-- **Performance Tracking**: Maintains a record of daily quiz performance for each participant.
-- **Merit List Generation**: Compiles a final performance report at the end of the month.
+This document outlines the **Standard Operating Procedure (SOP)** for the **Daily Quiz Automation System** using Google Forms and Google Sheets. The system automates quiz distribution, response collection, scoring, and result notifications.
 
-## Project Workflow
-### **1. Initial Setup**
-- The admin adds participants' names and emails to the **Quiz_Registrations** sheet.
-- The daily quiz questions and answers are updated in the **Daily_Quizzes** sheet.
-- The Google Form is linked to the quiz for participants to submit responses.
+## 1. System Components
 
-### **2. Daily Quiz Distribution**
-- The script extracts quiz questions from the **Daily_Quizzes** sheet.
-- Updates the Google Form with the new quiz.
-- Sends quiz form links via email to all registered participants.
+The system consists of the following Google Sheets:
 
-### **3. Response Collection & Evaluation**
-- The script fetches quiz responses submitted via Google Forms.
-- Matches selected answers with the correct answers stored in **Quiz_History**.
-- Calculates scores and updates the **Quiz_Results** sheet.
+- **Quiz\_Registration**: Stores registered users (Name, Email, Status)
+- **Daily\_Quizzes**: Contains the daily quiz questions and correct answers
+- **Form Responses 1**: Automatically collects responses from Google Forms
+- **Quiz\_Response**: Stores validated responses from registered users
+- **Quiz\_History**: Maintains historical records of past quizzes
+- **Quiz\_Result**: Stores the final quiz results, including scores and attempt status
 
-### **4. Absentee Marking**
-- Compares the list of registered participants with the submitted responses.
-- Marks missing participants as absent and sends them a notification email.
+## 2. Daily Quiz Process Flow
 
-### **5. Results Notification**
-- Participants receive an email with their quiz scores and status (Passed/Failed).
-- Results are stored in the **Quiz_Results** sheet.
+The automation follows a structured workflow:
 
-### **6. Monthly Merit List Generation**
-- Tracks the performance of each participant over the course of one month.
-- Generates a merit list based on overall quiz scores.
-
-## Google Sheets Structure
-### **1. Quiz_Registrations**
-| Name  | Email |
-|-------|------|
-| Mohammad | member@sio-kurla.com |
-
-### **2. Daily_Quizzes**
-| Question | Option A | Option B | Option C | Option D | Correct Answer |
-|----------|---------|---------|---------|---------|----------------|
-| Sample Question? | A | B | C | D | Correct Answer Text |
-
-### **3. Quiz_History**
-| Date | Q1 | A1 | Q2 | A2 | ... |
-|------|----|----|----|----|-----|
-| 2025-03-10 | Sample Question? | Correct Answer Text | ... |
-
-### **4. Quiz_Results**
-| Date | Name | Email | Selected Answers | Correct Answers | Correct Count | Wrong Count | Score | Status |
-|------|------|-------|----------------|----------------|--------------|------------|------|--------|
-| 2025-03-10 | Mohammad | member@sio-kurla.com | A, C, B... | Correct Answer, ... | 8 | 2 | 80% | Passed |
-
-## How to Run the Script
-### **1. Set Up Google Apps Script**
-- Open Google Sheets → Extensions → Apps Script.
-- Copy the script files into the Apps Script Editor.
-- Update the Google Form ID inside the script.
-- Deploy necessary triggers:
-  - **updateDailyQuiz()** (Runs once a day to send the quiz form link)
-  - **recordQuizResults()** (Runs periodically to fetch responses and update results)
-  - **sendDailyResults()** (Runs after results are updated to send emails)
-
-### **2. Run Functions Manually (For Debugging)**
-- `updateDailyQuiz()` → Sends the quiz form link.
-- `recordQuizResults()` → Fetches responses and updates `Quiz_Results`.
-- `sendDailyResults()` → Sends results via email.
-- `markAbsentParticipants()` → Marks absent users and notifies them.
-
-## Error Handling & Debugging
-- **Logging**: Uses `Logger.log()` to capture function execution details.
-- **Try-Catch Blocks**: Wrapped around email sending and data processing to catch errors.
-- **Manual Debugging**: Run individual functions via Apps Script editor to isolate issues.
-
-## Future Improvements
-- **Leaderboard Feature**: Display a leaderboard based on scores.
-- **Admin Dashboard**: Create a web-based UI for managing quizzes.
-- **Multi-Language Support**: Adapt the quiz for different languages.
-
-## Contributors
-- **Mohammad Suhail** – Project Initiator & Developer
-- **Open for Contributions** – Feel free to submit pull requests!
-
-## License
-This project is open-source and available for collaboration under the MIT License.
+1. **Update Quiz Form** (`updateQuizForm()`)
+2. **Send Quiz to Users** (`sendQuizToUsers()`)
+3. **Move Form Responses** (`moveFormResponses()`)
+4. **Store Quiz History** (`storeQuizHistory()`)
+5. **Process Quiz Results** (`processQuizResults()`)
+6. **Notify Users** (`notifyUsers()`)
 
 ---
-**For Issues & Debugging:** Submit issues in the GitHub repository to collaborate with other developers.
-## 🚨 Known Issues & Bugs
 
-We are actively working on resolving the following issues:
-- ✅ **Quiz results not updating automatically**
-- ❌ **Emails not sent for absent participants**
-- 🛠️ **Need better error handling in App Script**
+## 3. Detailed Steps
 
-If you have a fix, feel free to contribute! Check our [Issues](https://github.com/mdsuhail-3257/Quiz_Management/issues).
+### Step 1: Update Quiz Form
+
+- The script fetches **10 questions** from **Daily\_Quizzes**.
+- Updates Google Form with **Questions and Options**.
+- Excludes question numbers in the form.
+- Ensures answers are stored correctly for evaluation.
+- **Trigger Time**: 4 AM Daily
+
+### Step 2: Send Quiz to Users
+
+- Fetches registered emails from **Quiz\_Registration**.
+- Sends quiz link to registered users.
+- Ensures only registered users can submit responses.
+- **Trigger Time**: 5 AM Daily
+
+### Step 3: Move Form Responses
+
+- Collects submitted responses from **Form Responses 1**.
+- Validates responses using registered email from **Quiz\_Registration**.
+- **Only one valid response per user** is stored in **Quiz\_Response**.
+- **Trigger Interval**: Every 5 minutes
+
+### Step 4: Store Quiz History
+
+- At the end of the day, quiz questions and correct answers are stored in **Quiz\_History**.
+- Maintains records for reference and auditing.
+- **Trigger Time**: 11:30 PM Daily
+
+### Step 5: Process Quiz Results
+
+- Compares user responses from **Quiz\_Response** against correct answers from **Daily\_Quizzes**.
+- Calculates the **score out of 10**.
+- Updates **Quiz\_Result** sheet with:
+  - **Date**
+  - **Email**
+  - **Name**
+  - **Score**
+  - **Attempt Status** (Attempted / Absent)
+- **Trigger Time**: 11:30 PM Daily
+
+### Step 6: Notify Users
+
+- Sends email notifications:
+  - **Attempted users**: Receive their quiz score.
+  - **Absent users**: Receive a reminder email.
+- Ensures all users are informed daily.
+- **Trigger Time**: 11:30 PM Daily
+
+---
+
+## 4. Example Data & Execution
+
+### Example Registered User in **Quiz\_Registration**:
+
+| Name     | Email                                                | Status |
+| -------- | ---------------------------------------------------- | ------ |
+| Mohammad | [member@sio-kurla.com](mailto\:member@sio-kurla.com) | Active |
+
+### Example Quiz Entry in **Daily\_Quizzes**:
+
+| Question No. | Question          | Option 1 | Option 2 | Option 3 | Option 4 | Answer |
+| ------------ | ----------------- | -------- | -------- | -------- | -------- | ------ |
+| 1            | Capital of India? | Mumbai   | Delhi    | Chennai  | Kolkata  | Delhi  |
+
+### Example Quiz Response in **Form Responses 1**:
+
+| Date       | Email                                                | Score | Q1 Ans | Q2 Ans | Q3 Ans | ... |
+| ---------- | ---------------------------------------------------- | ----- | ------ | ------ | ------ | --- |
+| 2025-02-26 | [member@sio-kurla.com](mailto\:member@sio-kurla.com) |       | Delhi  | Apple  | 42     | ... |
+
+### Example Processed Result in **Quiz\_Result**:
+
+| Date       | Email                                                | Name     | Score | Attempt Status |
+| ---------- | ---------------------------------------------------- | -------- | ----- | -------------- |
+| 2025-02-26 | [member@sio-kurla.com](mailto\:member@sio-kurla.com) | Mohammad | 9/10  | Attempted      |
+
+---
+
+## 5. Troubleshooting & FAQs
+
+### 1. **Users getting an error: "Email not registered"**
+
+- Ensure the user's email is listed in **Quiz\_Registration**.
+- Verify case sensitivity (Emails should match exactly).
+
+### 2. **Google Form responses not collecting correctly?**
+
+- Check that **Form Responses 1** is properly linked.
+- Unlink and relink if columns are duplicated.
+
+### 3. **Scores not updating in Form Responses 1?**
+
+- Scores are calculated in **Quiz\_Result**, not in Form Responses.
+- Ensure `processQuizResults()` runs properly.
+
+### 4. **Users receiving multiple quiz response alerts?**
+
+- Ensure `moveFormResponses()` prevents duplicate submissions.
+- Enable "One response per user" in Google Form settings.
+
+---
+
+## 6. Setup & Configuration
+
+### A. First-Time Setup
+
+1. **Create Google Sheets** with the required sheet names.
+2. **Set up Google Form** and link it to **Form Responses 1**.
+3. **Copy the script into Google Apps Script**.
+4. **Set Triggers** using:
+   ```javascript
+   setAllTriggers();
+   ```
+
+### B. Updating Questions Daily
+
+- Add 10 new questions in **Daily\_Quizzes**.
+- Ensure correct answers are in **Column G**.
+- Run `updateQuizForm()` after updating.
+
+---
+
+## 7. Future Enhancements
+
+- Automate question selection from a larger pool.
+- Introduce leaderboard tracking for participants.
+- Implement a user dashboard for performance tracking.
+
+---
+
+## 8. Contact & Support
+
+For any issues, contact **Mohammad** at [**member@sio-kurla.com**](mailto\:member@sio-kurla.com).
+
+---
+
+**✅ Quiz Automation Successfully Configured & Running! 🚀**
 
